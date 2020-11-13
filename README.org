@@ -1,0 +1,16 @@
+penmap: Penalty Map
+
+This is an R package which provides an interface to an efficient C++
+data structure for storage/query of the model selection function,
+which is a mapping from penalty values to model sizes, and is useful
+in the context of segmentation models. 
+
+** Installation
+
+#+begin_src R
+remotes::install_github("tdhock/penmap")
+#+end_src
+
+** Usage
+
+TODO

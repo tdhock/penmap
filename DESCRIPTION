@@ -1,0 +1,17 @@
+Package: penmap
+Type: Package
+Title: Penalty Map
+Version: 2020.11.13
+Author: Toby Dylan Hocking
+Maintainer: Toby Dylan Hocking <toby.hocking@r-project.org>
+Description: Standard template library 
+ containers are used to implement an efficient data structure
+ for representing the model selection function, a mapping
+ from penalty values to model size, which is useful for
+ penalized segmentation models.
+License: GPL-3
+LinkingTo: Rcpp
+URL: https://github.com/tdhock/penmap
+BugReports: https://github.com/tdhock/penmap/issues
+Imports: Rcpp
+Suggests: ggplot2, testthat

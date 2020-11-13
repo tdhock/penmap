@@ -1,0 +1,2 @@
+useDynLib(penmap, .registration=TRUE)
+export(penmap)
