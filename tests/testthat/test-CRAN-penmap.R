@@ -69,6 +69,36 @@ test_that("breakpoint and model size ok", {
   ##penaltyLearning::modelSelection(data.frame(complexity=c(3,2), loss=c(2, 3.5)))
 })
 
+##   penalty loss model_size after
+## 1     2.0  3.5          2     1
+## 2     3.0  6.5          1     1
+## 3     3.5 10.0          0     1
+## 4     4.0 10.0          0     0
+test_that("insert three models ok with cross point", {
+  m=new(penmap::penmap)
+  m$insert(2, 3.5, 2)
+  expect_equal(m$df(), data.frame(penalty=2, loss=3.5, model_size=2, after=0))
+  m$insert(3, 6.5, 1)
+  expect_equal(m$df(), data.frame(penalty=c(2,3), loss=c(3.5, 6.5), model_size=c(2,1), after=c(1,0)))
+  m$insert(4, 10, 0)
+  expect_equal(m$df(), data.frame(penalty=c(2,3,3.5,4), loss=c(3.5,6.5,10,10), model_size=c(2,1,0,0), after=c(1,1,1,0)))
+})
+
+##    min.lambda max.lambda loss complexity
+## 1:        0.0        3.0  3.5          2
+## 2:        3.0        3.5  6.5          1
+## 3:        3.5        Inf 10.0          0
+test_that("insert three models ok with fill larger smaller", {
+  m=new(penmap::penmap)
+  m$insert(2, 3.5, 2)
+  expect_equal(m$df(), data.frame(penalty=2, loss=3.5, model_size=2, after=0))
+  m$insert(4, 10, 0)
+  m$df()
+  expect_equal(m$df(), data.frame(penalty=c(2, 4), loss=c(3.5, 10), model_size=c(2, 0), after=0))
+  m$insert(3.25, 6.5, 1)
+  expect_equal(m$df(), data.frame(penalty=c(2, 3, 3.5, 4), loss=c(3.5, 6.5, 10, 10), model_size=c(2, 1, 0, 0), after=c(1,1,1,0)))
+})
+
 m <- new(penmap::penmap)
 m$insert(1.0, 2.0, 3)
 m$df()
