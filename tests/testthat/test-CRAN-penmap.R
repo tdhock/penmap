@@ -74,11 +74,35 @@ test_that("breakpoint and model size ok", {
 ## 2     3.0  6.5          1     1
 ## 3     3.5 10.0          0     1
 ## 4     4.0 10.0          0     0
-test_that("insert three models ok with cross point", {
+test_that("insert three models ok with cross point size=2", {
   m=new(penmap::penmap)
   m$insert(2, 3.5, 2)
   expect_equal(m$df(), data.frame(penalty=2, loss=3.5, model_size=2, after=0))
+  ## at penalty=3 model_size=1 and 2 are optimal
+  m$insert(3, 3.5, 2)
+  expect_equal(m$df(), data.frame(penalty=c(2,3), loss=c(3.5, 3.5), model_size=2, after=c(1,0)))
+  m$insert(4, 10, 0)
+  expect_equal(m$df(), data.frame(penalty=c(2,3,4), loss=c(3.5,3.5,10), model_size=c(2,2,0), after=c(1,0,0)))
+  m$insert(3.1, 6.5, 1)
+  expect_equal(m$df(), data.frame(penalty=c(2,3,3.5,4), loss=c(3.5,6.5,10,10), model_size=c(2,1,0,0), after=c(1,1,1,0)))
+})
+
+test_that("insert three models ok with cross point size=1", {
+  m=new(penmap::penmap)
+  m$insert(2, 3.5, 2)
+  expect_equal(m$df(), data.frame(penalty=2, loss=3.5, model_size=2, after=0))
+  ## at penalty=3 model_size=1 and 2 are optimal
   m$insert(3, 6.5, 1)
+  expect_equal(m$df(), data.frame(penalty=c(2,3), loss=c(3.5, 6.5), model_size=c(2,1), after=c(1,0)))
+  m$insert(4, 10, 0)
+  expect_equal(m$df(), data.frame(penalty=c(2,3,3.5,4), loss=c(3.5,6.5,10,10), model_size=c(2,1,0,0), after=c(1,1,1,0)))
+})
+
+test_that("insert three models ok with cross point size=1 other side", {
+  m=new(penmap::penmap)
+  m$insert(3, 6.5, 1)
+  expect_equal(m$df(), data.frame(penalty=3, loss=6.5, model_size=1, after=0))
+  m$insert(2, 3.5, 2)
   expect_equal(m$df(), data.frame(penalty=c(2,3), loss=c(3.5, 6.5), model_size=c(2,1), after=c(1,0)))
   m$insert(4, 10, 0)
   expect_equal(m$df(), data.frame(penalty=c(2,3,3.5,4), loss=c(3.5,6.5,10,10), model_size=c(2,1,0,0), after=c(1,1,1,0)))

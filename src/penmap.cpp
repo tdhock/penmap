@@ -1,4 +1,4 @@
-/* -*- compile-command: "R -e 'Rcpp::compileAttributes(\"..\")' && R CMD INSTALL .. && R --vanilla < ../tests/testthat/test-penmap.R" -*- */
+/* -*- compile-command: "R -e 'Rcpp::compileAttributes(\"..\")' && R CMD INSTALL .. && R --vanilla < ../tests/testthat/test-CRAN-penmap.R" -*- */
 #include <map>
 #include <Rcpp.h>
 
@@ -49,6 +49,7 @@ public:
     // An iterator to the the first element in the container which is
     // not considered to go before val (can be same value), or
     // set::end if all elements are considered to go before val.
+    double larger_lambda, smaller_lambda;
     BreakpointTree::iterator larger_pen = breakpoints.lower_bound(new_break);
     BreakpointTree::iterator smaller_pen;
     BreakpointTree::iterator before_smaller_pen;
@@ -57,6 +58,9 @@ public:
     double smaller_pen_size_diff = INFINITY;
     if(larger_pen != breakpoints.begin()){
       smaller_pen = prev(larger_pen);
+      smaller_lambda = crossing_point
+	(loss, smaller_pen->model->loss,
+	 model_size, smaller_pen->model->model_size);
       if(smaller_pen->after){
 	throw std::range_error("penalty already known");
       }
@@ -71,6 +75,9 @@ public:
       }
     }
     if(larger_pen != breakpoints.end()){
+      larger_lambda = crossing_point
+	(loss, larger_pen->model->loss,
+	 model_size, larger_pen->model->model_size);      
       if(larger_pen->penalty == penalty){
 	throw std::range_error("penalty already known");
       }	
@@ -127,10 +134,43 @@ public:
       }
       return;
     }
+    if(smaller_pen_size_diff == 1){
+      if(smaller_is_interval){
+	smaller_pen->penalty = smaller_lambda;
+      }else{
+	// emplace new breakpoint to create interval.
+	smaller_pen->after = true;
+	smaller_pen = breakpoints.emplace_hint
+	  (larger_pen, smaller_lambda, smaller_pen->model, false);
+      }
+      // at this point smaller_pen is the end of an interval with
+      // after=false.
+      if(larger_pen_size_diff == 1){
+	loss_list.emplace_front(loss, model_size);
+	Losses::iterator new_model = loss_list.begin();
+	if(larger_pen->after){
+	  larger_pen->penalty = larger_lambda;
+	}else{
+	  breakpoints.emplace_hint
+	    (larger_pen, larger_lambda, larger_pen->model, true);
+	}
+	smaller_pen->model = new_model;
+	smaller_pen->after = true;
+      }else if(smaller_lambda < penalty){
+	smaller_pen->after = true;
+	loss_list.emplace_front(loss, model_size);
+	Losses::iterator new_model = loss_list.begin();
+	smaller_pen->model = new_model;
+	breakpoints.emplace_hint
+	  (larger_pen, penalty, new_model, false);
+      }else if(model_size != smaller_pen->model->model_size){
+	loss_list.emplace_front(loss, model_size);
+	Losses::iterator new_model = loss_list.begin();
+	smaller_pen->model = new_model;
+      }
+      return;
+    }
     if(larger_pen_size_diff == 1){
-      double larger_lambda = crossing_point
-	(loss, larger_pen->model->loss,
-	 model_size, larger_pen->model->model_size);
       BreakpointTree::iterator hint;
       if(larger_pen->after){
 	larger_pen->penalty = larger_lambda;
@@ -144,28 +184,6 @@ public:
 	Losses::iterator new_model = loss_list.begin();
 	breakpoints.emplace_hint
 	  (hint, penalty, new_model, true);
-      }
-      return;
-    }
-    if(smaller_pen_size_diff == 1){
-      double smaller_lambda = crossing_point
-	(loss, smaller_pen->model->loss,
-	 model_size, smaller_pen->model->model_size);
-      if(smaller_is_interval){
-	smaller_pen->penalty = smaller_lambda;
-      }else{
-	// emplace new breakpoint to create interval.
-	smaller_pen->after = true;
-	smaller_pen = breakpoints.emplace_hint
-	  (larger_pen, smaller_lambda, smaller_pen->model, false);
-      }
-      if(smaller_lambda < penalty){
-	smaller_pen->after = true;
-	loss_list.emplace_front(loss, model_size);
-	Losses::iterator new_model = loss_list.begin();
-	smaller_pen->model = new_model;
-	breakpoints.emplace_hint
-	  (larger_pen, penalty, new_model, false);
       }
       return;
     }
