@@ -98,10 +98,10 @@ public:
 	  // case smaller(after=false), larger(after=true), convert to
 	  // smaller(after=true), breakpoint(after=true)
 	  larger_pen->penalty = other_lambda;
-	}else{
-	  // case smaller point(after=false), larger point(after=false):
-	  // need to convert to smaller(after=true), breakpoint,
-	  // larger(after=false)
+	}else if(smaller_is_interval){
+	  smaller_pen->penalty = other_lambda;
+	  smaller_pen->model = larger_pen->model;
+	}else{//smaller point.
 	  breakpoints.emplace_hint
 	    (larger_pen, other_lambda, larger_pen->model, true);
 	}

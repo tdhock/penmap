@@ -123,6 +123,18 @@ test_that("insert three models ok with fill larger smaller", {
   expect_equal(m$df(), data.frame(penalty=c(2, 3, 3.5, 4), loss=c(3.5, 6.5, 10, 10), model_size=c(2, 1, 0, 0), after=c(1,1,1,0)))
 })
 
+test_that("breakpoints are combined", {
+  m = new(penmap::penmap)
+  m$insert(0, 2, 3)
+  expect_equal(m$df(), data.frame(penalty=0, loss=2, model_size=3, after=0))
+  m$insert(2, 3.5, 2)
+  expect_equal(m$df(), data.frame(penalty=c(0,1.5,2), loss=c(2,3.5,3.5), model_size=c(3,2,2), after=c(1,1,0)))
+  m$insert(5, 10, 0)
+  expect_equal(m$df(), data.frame(penalty=c(0,1.5,2,5), loss=c(2,3.5,3.5,10), model_size=c(3,2,2,0), after=c(1,1,0,0)))
+  m$insert(3.25, 10, 0)
+  expect_equal(m$df(), data.frame(penalty=c(0,1.5,3.25,5), loss=c(2,3.5,10,10), model_size=c(3,2,0,0), after=c(1,1,1,0)))
+})
+
 m <- new(penmap::penmap)
 m$insert(1.0, 2.0, 3)
 m$df()
