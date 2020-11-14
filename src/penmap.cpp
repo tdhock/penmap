@@ -1,8 +1,5 @@
 /* -*- compile-command: "R -e 'Rcpp::compileAttributes(\"..\")' && R CMD INSTALL .. && R --vanilla < ../tests/testthat/test-CRAN-penmap.R" -*- */
 #include <Rcpp.h>
-#define UNKNOWN loss_list.end()
-#define LOSS(it) ((it)==(UNKNOWN)) ? (INFINITY) : ((it)->loss)
-#define SIZE(it) ((it)==(UNKNOWN)) ? (-1) : ((it)->size)
 
 class lossSize {
 public:
@@ -45,11 +42,18 @@ class msMap {
 public:
   BreakpointTree breakpoints;
   Losses loss_list;
+  Losses::iterator UNKNOWN, BOTH;
   BreakpointTree::iterator smaller_pen, larger_pen;
+  msMap(){
+    loss_list.emplace_front(INFINITY, -1);
+    UNKNOWN = loss_list.begin();
+    loss_list.emplace_front(INFINITY, -2);
+    BOTH = loss_list.begin();
+  }
   void insert_simplify
-  (double penalty,
-   Losses::iterator on,
-   Losses::iterator after){
+  (double penalty, //3
+   Losses::iterator on, //BOTH
+   Losses::iterator after){//6.5,1
     if(larger_pen != breakpoints.end() &&
        larger_pen->after == after &&
        after != UNKNOWN){
@@ -59,25 +63,38 @@ public:
     }
     if(smaller_pen != breakpoints.end() &&
        smaller_pen != breakpoints.begin() &&
-       prev(smaller_pen)->after == on){
+       prev(smaller_pen)->after == smaller_pen->on){
       smaller_pen->penalty = penalty;
+      smaller_pen->on = on;
       smaller_pen->after = after;
       return;
     }
-    if(smaller_pen != breakpoints.end() && smaller_pen->on == on){
-      smaller_pen->after = on;
+    if(smaller_pen != breakpoints.end() &&
+       smaller_pen->penalty == penalty){
+      smaller_pen->on = on;
+      smaller_pen->after = after;
+      return;
     }
-    if(larger_pen != breakpoints.end() && larger_pen->on == on){
-      after = on;
+    if(smaller_pen != breakpoints.end() &&
+       smaller_pen->after == UNKNOWN){
+      if(smaller_pen->on == on){
+	smaller_pen->after = on;
+      }
+      if(smaller_pen->on == BOTH && on != BOTH){
+	smaller_pen->after = on;
+      }
+      if(smaller_pen->on != BOTH && on == BOTH){
+	smaller_pen->after = smaller_pen->on;
+      }
     }
-    breakpoints.emplace_hint(larger_pen, penalty, on, after);
-  }
-  bool smaller_is_interval(){
-    if(smaller_pen == breakpoints.begin()){
-      return false;
-    }else{
-      return prev(smaller_pen)->after == smaller_pen->on;
+    if(smaller_pen != breakpoints.end() &&
+       smaller_pen != breakpoints.begin() &&
+       prev(smaller_pen)->after != smaller_pen->after &&
+       prev(smaller_pen)->after != UNKNOWN &&
+       smaller_pen->after != UNKNOWN){
+      smaller_pen->on = BOTH;
     }
+    smaller_pen = breakpoints.emplace_hint(larger_pen, penalty, on, after);
   }
   void insert(double penalty, double loss, int size){
     breakInfo new_break(penalty);
@@ -119,7 +136,7 @@ public:
 	larger_pen_size_diff==0;
       if(penalty == other_lambda && adjacent_same_size){
 	// there are no other models between smaller and larger.
-	insert_simplify(other_lambda, smaller_pen->on, larger_pen->on);
+	insert_simplify(other_lambda, BOTH, larger_pen->on);
 	return;
       }
     }
@@ -133,14 +150,14 @@ public:
     }
     loss_list.emplace_front(loss, size);
     if(larger_pen_size_diff == 1 && smaller_pen_size_diff == 1){
-      insert_simplify(smaller_lambda, smaller_pen->on, loss_list.begin());
-      insert_simplify(larger_lambda, loss_list.begin(), larger_pen->on);
+      insert_simplify(smaller_lambda, BOTH, loss_list.begin());
+      insert_simplify(larger_lambda, BOTH, larger_pen->on);
       return;
     }
     if(larger_pen_size_diff == 1){
       if(penalty < larger_lambda){
 	insert_simplify(penalty, loss_list.begin(), loss_list.begin());
-	insert_simplify(larger_lambda, larger_pen->on, larger_pen->on);
+	insert_simplify(larger_lambda, BOTH, larger_pen->on);
       }else{
 	insert_simplify(penalty, loss_list.begin(), larger_pen->on);
       }
@@ -148,11 +165,12 @@ public:
     }
     if(smaller_pen_size_diff == 1){
       if(smaller_lambda < penalty){
-	insert_simplify(smaller_lambda, smaller_pen->on, loss_list.begin());
+	insert_simplify(smaller_lambda, BOTH, loss_list.begin());
+	insert_simplify(penalty, loss_list.begin(), UNKNOWN);
       }else{
 	smaller_pen->after = smaller_pen->on;
+	insert_simplify(penalty, loss_list.begin(), UNKNOWN);
       }
-      insert_simplify(penalty, loss_list.begin(), UNKNOWN);
       return;
     }
     //last case: empty set, just insert.
@@ -168,10 +186,10 @@ public:
     BreakpointTree::iterator it=breakpoints.begin();
     for(int i=0; i<Nrow; i++){
       penalty[i] = it->penalty;
-      loss_on[i] = LOSS(it->on);
-      size_on[i] = SIZE(it->on);
-      loss_after[i] = LOSS(it->after);
-      size_after[i] = SIZE(it->after);
+      loss_on[i] = it->on->loss;
+      size_on[i] = it->on->size;
+      loss_after[i] = it->after->loss;
+      size_after[i] = it->after->size;
       it++;
     }
     return Rcpp::DataFrame::create
