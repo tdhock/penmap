@@ -1,32 +1,33 @@
 /* -*- compile-command: "R -e 'Rcpp::compileAttributes(\"..\")' && R CMD INSTALL .. && R --vanilla < ../tests/testthat/test-CRAN-penmap.R" -*- */
-#include <map>
 #include <Rcpp.h>
+#define UNKNOWN loss_list.end()
+#define LOSS(it) ((it)==(UNKNOWN)) ? (INFINITY) : ((it)->loss)
+#define SIZE(it) ((it)==(UNKNOWN)) ? (-1) : ((it)->size)
 
 class lossSize {
 public:
   double loss;
-  int model_size;
+  int size;
   lossSize(double l_, int s_) :
-    loss(l_), model_size(s_) {}
+    loss(l_), size(s_) {}
 };
 
 typedef std::list<lossSize> Losses;
 
 class breakInfo {
 public:
-  mutable Losses::iterator model;
-  mutable bool after;
+  mutable Losses::iterator on, after;
   mutable double penalty;
   breakInfo(double p){
     penalty = p;
   }
   breakInfo
   (double p_,
-   Losses::iterator it,
-   bool after_) {
+   Losses::iterator on_it,
+   Losses::iterator after_it) {
     penalty = p_;
-    model = it; 
-    after = after_;
+    on = on_it; 
+    after = after_it;
   }
   friend bool operator<(const breakInfo& l, const breakInfo& r)
   {
@@ -44,172 +45,141 @@ class msMap {
 public:
   BreakpointTree breakpoints;
   Losses loss_list;
-  void insert(double penalty, double loss, int model_size){
+  BreakpointTree::iterator smaller_pen, larger_pen;
+  void insert_simplify
+  (double penalty,
+   Losses::iterator on,
+   Losses::iterator after){
+    if(larger_pen != breakpoints.end() &&
+       larger_pen->after == after &&
+       after != UNKNOWN){
+      larger_pen->penalty = penalty;
+      larger_pen->on = on;
+      return;
+    }
+    if(smaller_pen != breakpoints.end() &&
+       smaller_pen != breakpoints.begin() &&
+       prev(smaller_pen)->after == on){
+      smaller_pen->penalty = penalty;
+      smaller_pen->after = after;
+      return;
+    }
+    if(smaller_pen != breakpoints.end() && smaller_pen->on == on){
+      smaller_pen->after = on;
+    }
+    if(larger_pen != breakpoints.end() && larger_pen->on == on){
+      after = on;
+    }
+    breakpoints.emplace_hint(larger_pen, penalty, on, after);
+  }
+  bool smaller_is_interval(){
+    if(smaller_pen == breakpoints.begin()){
+      return false;
+    }else{
+      return prev(smaller_pen)->after == smaller_pen->on;
+    }
+  }
+  void insert(double penalty, double loss, int size){
     breakInfo new_break(penalty);
     // An iterator to the the first element in the container which is
     // not considered to go before val (can be same value), or
     // set::end if all elements are considered to go before val.
     double larger_lambda, smaller_lambda;
-    BreakpointTree::iterator larger_pen = breakpoints.lower_bound(new_break);
-    BreakpointTree::iterator smaller_pen;
-    BreakpointTree::iterator before_smaller_pen;
-    bool smaller_is_interval;
+    larger_pen = breakpoints.lower_bound(new_break);
     double larger_pen_size_diff = INFINITY;
     double smaller_pen_size_diff = INFINITY;
-    if(larger_pen != breakpoints.begin()){
+    // Compute larger/smaller size differences.
+    if(larger_pen == breakpoints.begin()){
+      smaller_pen = breakpoints.end();//marker for does not exist.
+    }else{
       smaller_pen = prev(larger_pen);
-      smaller_lambda = crossing_point
-	(loss, smaller_pen->model->loss,
-	 model_size, smaller_pen->model->model_size);
-      if(smaller_pen->after){
+      if(smaller_pen->after != UNKNOWN){
 	throw std::range_error("penalty already known");
       }
-      smaller_pen_size_diff = smaller_pen->model->model_size - model_size;
-      if(smaller_pen == breakpoints.begin()){
-	smaller_is_interval = false;
-      }else{
-	before_smaller_pen = prev(smaller_pen);
-	smaller_is_interval =
-	  before_smaller_pen->after &&
-	  before_smaller_pen->model->model_size==smaller_pen->model->model_size;
-      }
+      smaller_lambda = crossing_point
+	(loss, smaller_pen->on->loss,
+	 size, smaller_pen->on->size);
+      smaller_pen_size_diff = smaller_pen->on->size - size;
     }
     if(larger_pen != breakpoints.end()){
-      larger_lambda = crossing_point
-	(loss, larger_pen->model->loss,
-	 model_size, larger_pen->model->model_size);      
       if(larger_pen->penalty == penalty){
 	throw std::range_error("penalty already known");
       }	
-      larger_pen_size_diff = model_size - larger_pen->model->model_size;
+      larger_lambda = crossing_point
+	(loss, larger_pen->on->loss,
+	 size, larger_pen->on->size);
+      larger_pen_size_diff = size - larger_pen->on->size;
     }
     if(larger_pen != breakpoints.end() && larger_pen != breakpoints.begin()){
       double other_lambda = crossing_point
-	(larger_pen->model->loss, smaller_pen->model->loss,
-	 larger_pen->model->model_size, smaller_pen->model->model_size);
+	(smaller_pen->on->loss, larger_pen->on->loss, 
+	 smaller_pen->on->size, larger_pen->on->size);
       bool adjacent_same_size =
 	smaller_pen_size_diff==0 ||
 	larger_pen_size_diff==0;
       if(penalty == other_lambda && adjacent_same_size){
-	// now we know there are no other models between smaller and
-	// larger, so we should add a breakpoint at other_lambda.
-	smaller_pen->after = true;
-	if(larger_pen->after){
-	  // case smaller(after=false), larger(after=true), convert to
-	  // smaller(after=true), breakpoint(after=true)
-	  larger_pen->penalty = other_lambda;
-	}else if(smaller_is_interval){
-	  smaller_pen->penalty = other_lambda;
-	  smaller_pen->model = larger_pen->model;
-	}else{//smaller point.
-	  breakpoints.emplace_hint
-	    (larger_pen, other_lambda, larger_pen->model, true);
-	}
+	// there are no other models between smaller and larger.
+	insert_simplify(other_lambda, smaller_pen->on, larger_pen->on);
 	return;
       }
     }
     if(smaller_pen_size_diff == 0){
-      if(smaller_is_interval){
-	smaller_pen->penalty = penalty;
-      }else{
-	breakpoints.emplace_hint
-	  (larger_pen, penalty, smaller_pen->model, false);
-	smaller_pen->after = true;
-      }
+      insert_simplify(penalty, smaller_pen->on, UNKNOWN);
       return;
     }
     if(larger_pen_size_diff == 0){
-      if(larger_pen->after){
-	// larger pen is already known to be optimal on interval, so
-	// expand that interval by decreasing the breakpoint.
-	larger_pen->penalty = penalty;
+      insert_simplify(penalty, larger_pen->on, larger_pen->on);
+      return;
+    }
+    loss_list.emplace_front(loss, size);
+    if(larger_pen_size_diff == 1 && smaller_pen_size_diff == 1){
+      insert_simplify(smaller_lambda, smaller_pen->on, loss_list.begin());
+      insert_simplify(larger_lambda, loss_list.begin(), larger_pen->on);
+      return;
+    }
+    if(larger_pen_size_diff == 1){
+      if(penalty < larger_lambda){
+	insert_simplify(penalty, loss_list.begin(), loss_list.begin());
+	insert_simplify(larger_lambda, larger_pen->on, larger_pen->on);
       }else{
-	// larger pen is only known to be optimal at its penalty
-	// value, so we need to create a new breakpoint representing
-	// the optimal interval.
-	breakpoints.emplace_hint(larger_pen, penalty, larger_pen->model, true);
-	// The function optimizes its insertion time if position
-	// points to the element that will follow the inserted element
-	// (or to the end, if it would be the last).
+	insert_simplify(penalty, loss_list.begin(), larger_pen->on);
       }
       return;
     }
     if(smaller_pen_size_diff == 1){
-      if(smaller_is_interval){
-	smaller_pen->penalty = smaller_lambda;
+      if(smaller_lambda < penalty){
+	insert_simplify(smaller_lambda, smaller_pen->on, loss_list.begin());
       }else{
-	// emplace new breakpoint to create interval.
-	smaller_pen->after = true;
-	smaller_pen = breakpoints.emplace_hint
-	  (larger_pen, smaller_lambda, smaller_pen->model, false);
+	smaller_pen->after = smaller_pen->on;
       }
-      // at this point smaller_pen is the end of an interval with
-      // after=false.
-      if(larger_pen_size_diff == 1){
-	loss_list.emplace_front(loss, model_size);
-	Losses::iterator new_model = loss_list.begin();
-	if(larger_pen->after){
-	  larger_pen->penalty = larger_lambda;
-	}else{
-	  breakpoints.emplace_hint
-	    (larger_pen, larger_lambda, larger_pen->model, true);
-	}
-	smaller_pen->model = new_model;
-	smaller_pen->after = true;
-      }else if(smaller_lambda < penalty){
-	smaller_pen->after = true;
-	loss_list.emplace_front(loss, model_size);
-	Losses::iterator new_model = loss_list.begin();
-	smaller_pen->model = new_model;
-	breakpoints.emplace_hint
-	  (larger_pen, penalty, new_model, false);
-      }else if(model_size != smaller_pen->model->model_size){
-	loss_list.emplace_front(loss, model_size);
-	Losses::iterator new_model = loss_list.begin();
-	smaller_pen->model = new_model;
-      }
+      insert_simplify(penalty, loss_list.begin(), UNKNOWN);
       return;
     }
-    if(larger_pen_size_diff == 1){
-      BreakpointTree::iterator hint;
-      if(larger_pen->after){
-	larger_pen->penalty = larger_lambda;
-	hint = larger_pen;
-      }else{
-	hint = breakpoints.emplace_hint
-	  (larger_pen, larger_lambda, larger_pen->model, true);
-      }
-      if(penalty < larger_lambda){
-	loss_list.emplace_front(loss, model_size);
-	Losses::iterator new_model = loss_list.begin();
-	breakpoints.emplace_hint
-	  (hint, penalty, new_model, true);
-      }
-      return;
-    }
-    loss_list.emplace_front(loss, model_size);
-    Losses::iterator new_model = loss_list.begin();
-    breakpoints.emplace_hint(larger_pen, penalty, new_model, false);
+    //last case: empty set, just insert.
+    breakpoints.emplace_hint(larger_pen, penalty, loss_list.begin(), UNKNOWN);
   }
   Rcpp::DataFrame df(){ 
     int Nrow = breakpoints.size();
     Rcpp::NumericVector penalty(Nrow);
-    Rcpp::NumericVector loss(Nrow);
-    Rcpp::IntegerVector model_size(Nrow);
-    Rcpp::IntegerVector after(Nrow);
+    Rcpp::NumericVector loss_on(Nrow);
+    Rcpp::IntegerVector size_on(Nrow);
+    Rcpp::NumericVector loss_after(Nrow);
+    Rcpp::IntegerVector size_after(Nrow);
     BreakpointTree::iterator it=breakpoints.begin();
     for(int i=0; i<Nrow; i++){
       penalty[i] = it->penalty;
-      loss[i] = it->model->loss;
-      model_size[i] = it->model->model_size;
-      after[i] = it->after;
+      loss_on[i] = LOSS(it->on);
+      size_on[i] = SIZE(it->on);
+      loss_after[i] = LOSS(it->after);
+      size_after[i] = SIZE(it->after);
       it++;
     }
     return Rcpp::DataFrame::create
       (Rcpp::Named("penalty", penalty),
-       Rcpp::Named("loss", loss),
-       Rcpp::Named("model_size", model_size),
-       Rcpp::Named("after", after)
+       Rcpp::Named("loss_on", loss_on),
+       Rcpp::Named("size_on", size_on),
+       Rcpp::Named("loss_after", loss_after),
+       Rcpp::Named("size_after", size_after)
        );
   }
 };
