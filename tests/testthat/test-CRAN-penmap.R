@@ -92,17 +92,17 @@ test_that("error already known", {
   m.dup$insert(0.1, 2.0, 3)
   expect_error({
     m.dup$insert(0.1, 2.0, 3)
-  }, class="std::range_error")
+  }, class="std::domain_error")
   m.dup$insert(0.5, 2.0, 3)
   expect_error({
     m.dup$insert(0.1, 2.0, 3)
-  }, class="std::range_error")
+  }, class="std::domain_error")
   expect_error({
     m.dup$insert(0.2, 2.0, 3)
-  }, class="std::range_error")
+  }, class="std::domain_error")
   expect_error({
     m.dup$insert(0.5, 2.0, 3)
-  }, class="std::range_error")
+  }, class="std::domain_error")
 })
 
 test_that("breakpoint and model size ok", {

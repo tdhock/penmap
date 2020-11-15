@@ -1,1 +1,1 @@
-Rcpp::loadModule("map_module", TRUE)
+Rcpp::loadModule("penmap_module", TRUE)
