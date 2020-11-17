@@ -11,81 +11,190 @@ r <- function(penalty, on, after){
 L <- function(loss, size){
   data.frame(loss, size)
 }
-BOTH <- L(Inf, -2)
-UNKNOWN <- L(Inf, -1)
+cross <- function(d){
+  l1 <- d$loss_on[-nrow(d)]
+  l2 <- d$loss_on[-1]
+  s1 <- d$size_on[-nrow(d)]
+  s2 <- d$size_on[-1]
+  x <- (l1-l2)/(s2-s1)
+  x[is.finite(x)]
+}
+HELPFUL <- function(loss){
+  data.frame(loss, size=-3)
+}
+BOTH <- L(Inf, -1)
+UNKNOWN <- L(Inf, -2)
 
-m.inc <- new(penmap::penmap)
-test_that("one insert one row 0.1", {
-  m.inc$insert(0.1, 2.0, 3)
-  (computed <- m.inc$df())
-  expected <- r(0.1, L(2,3), UNKNOWN)
-  expect_equal(computed, expected)
-})
-test_that("two inserts, same size, two rows", {
-  m.inc$insert(0.2, 2.0, 3)
-  (computed <- m.inc$df())
+test_that("new penmap has next penalties 0 Inf", {
+  m <- new(penmap::penmap)
+  (computed <- m$df())
   expected <- rbind(
-    r(0.1, L(2,3), L(2,3)),
-    r(0.2, L(2,3), UNKNOWN))
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
-})
-test_that("three inserts, same size, two rows", {
-  m.inc$insert(0.3, 2.0, 3)
-  (computed <- m.inc$df())
-  expected <- rbind(
-    r(0.1, L(2,3), L(2,3)),
-    r(0.3, L(2,3), UNKNOWN))
-  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
 })
 
-m.dec <- new(penmap::penmap)
-test_that("one insert one row 0.3", {
-  m.dec$insert(0.3, 2.0, 3)
-  (computed <- m.dec$df())
-  expected <- r(0.3, L(2,3), UNKNOWN)
-  expect_equal(computed, expected)
-})
-test_that("two inserts, same size, two rows, dec", {
-  m.dec$insert(0.2, 2.0, 3)
-  (computed <- m.dec$df())
+test_that("one insert pen=0.1", {
+  m <- new(penmap::penmap)
+  m$insert(0.1, 2.0, 3)
+  (computed <- m$df())
   expected <- rbind(
-    r(0.2, L(2,3), L(2,3)),
-    r(0.3, L(2,3), UNKNOWN))
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
-})
-test_that("three inserts, same size, two rows, dec", {
-  m.dec$insert(0.1, 2.0, 3)
-  (computed <- m.dec$df())
-  expected <- rbind(
-    r(0.1, L(2,3), L(2,3)),
-    r(0.3, L(2,3), UNKNOWN))
-  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
 })
 
-m.points <- new(penmap::penmap)
-test_that("one insert one row 0.1 30", {
-  m.points$insert(0.1, 2.0, 30)
-  (computed <- m.points$df())
-  expected <- r(0.1, L(2.0,30), UNKNOWN)
-  expect_equal(computed, expected)
-})
-test_that("two inserts, two rows, 30 20", {
-  m.points$insert(0.2, 3.5, 20)
-  (computed <- m.points$df())
+test_that("one insert pen=0", {
+  m <- new(penmap::penmap)
+  m$insert(0, 2.0, 3)
+  (computed <- m$df())
   expected <- rbind(
+    r(0, L(2,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), Inf)
+})
+
+test_that("one insert pen=Inf size=3", {
+  m <- new(penmap::penmap)
+  expect_error({
+    m$insert(Inf, 2.0, 3)
+  }, "size should be zero with infinite penalty")
+})
+
+test_that("one insert pen=Inf", {
+  m <- new(penmap::penmap)
+  m$insert(Inf, 2.0, 0)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(Inf, L(2,0), UNKNOWN))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
+})
+
+test_that("three inserts same size increasing", {
+  m <- new(penmap::penmap)
+  m$insert(0.1, 2.0, 3)
+  m$insert(0.2, 2.0, 3)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,3), L(2,3)),
+    r(0.2, L(2,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  m$insert(0.3, 2.0, 3)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,3), L(2,3)),
+    r(0.3, L(2,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+})
+
+test_that("three inserts same size decreasing", {
+  m <- new(penmap::penmap)
+  m$insert(0.3, 2.0, 0)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.3, L(2,0), L(2,0)),
+    r(Inf, L(2,0), UNKNOWN))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
+  m$insert(0.2, 2.0, 0)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.2, L(2,0), L(2,0)),
+    r(Inf, L(2,0), UNKNOWN))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
+  m$insert(0.1, 2.0, 0)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,0), L(2,0)),
+    r(Inf, L(2,0), UNKNOWN))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
+})
+
+##penaltyLearning::modelSelection(data.frame(loss=c(2,3.5,6.5), complexity=c(30,20,10)))
+test_that("insert sizes 30 20 10", {
+  m <- new(penmap::penmap)
+  m$insert(0.1, 2.0, 30)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(0.1, L(2,30), UNKNOWN),
-    r(0.2, L(3.5,20), UNKNOWN))
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
-})
-test_that("three inserts, three rows, 30 20 10", {
-  m.points$insert(0.3, 6.5, 10)
-  (computed <- m.points$df())
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  m$insert(0.2, 3.5, 20)
+  (computed <- m$df())
   expected <- rbind(
-    r(0.1, L(2,30), UNKNOWN),
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,30), HELPFUL(0.15)),
     r(0.2, L(3.5,20), UNKNOWN),
-    r(0.3, L(6.5,10), UNKNOWN))
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  cross(expected)
+  expect_equal(sort(m$helpful()), c(0, 0.15, Inf))
+  m$insert(0.4, 6.5, 10)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,30), HELPFUL(0.15)),
+    r(0.2, L(3.5,20), HELPFUL(0.3)),
+    r(0.4, L(6.5,10), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  cross(expected)
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, 0.15, 0.3, Inf))
 })
+
+test_that("insert sizes 10 20 30", {
+  m <- new(penmap::penmap)
+  m$insert(0.4, 6.5, 10)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.4, L(6.5,10), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  m$insert(0.2, 3.5, 20)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.2, L(3.5,20), HELPFUL(0.3)),
+    r(0.4, L(6.5,10), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  cross(expected)
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, 0.3, Inf))
+  m$insert(0.1, 2, 30)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(0.1, L(2,30), HELPFUL(0.15)),
+    r(0.2, L(3.5,20), HELPFUL(0.3)),
+    r(0.4, L(6.5,10), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  cross(expected)
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, 0.15, 0.3, Inf))
+})
+
+## TODO check before inserting bogus loss values.
 
 test_that("error already known", {
   m.dup <- new(penmap::penmap)
@@ -109,15 +218,22 @@ test_that("breakpoint and model size ok", {
   m <- new(penmap::penmap)
   m$insert(1.0, 2.0, 3)
   (computed <- m$df())
-  expected <- r(1.0, L(2.0,3), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(1.0, L(2.0,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
   m$insert(2.0, 3.5, 2)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(1, L(2,3), L(2,3)),
     r(1.5, BOTH, L(3.5,2)),
-    r(2, L(3.5,2), UNKNOWN))
+    r(2, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
 })
 
 test_that("insert three models ok with cross point size=2", {
@@ -125,127 +241,177 @@ test_that("insert three models ok with cross point size=2", {
   m$insert(2, 3.5, 2)
   (computed <- m$df())
   expected <- r(2, L(3.5,2), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
   ## at penalty=3 size_on=1 and 2 are optimal
   m$insert(3, 3.5, 2)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
-    r(3, L(3.5,2), UNKNOWN))
+    r(3, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
   m$insert(4, 10, 0)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
-    r(3, L(3.5,2), UNKNOWN),
-    r(4, L(10,0), UNKNOWN))
+    r(3, L(3.5,2), HELPFUL(3.25)),
+    r(4, L(10,0), L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
+  cross(expected)
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, 3.25))
   m$insert(3.1, 6.5, 1)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
     r(3, BOTH, L(6.5,1)),
     r(3.5, BOTH, L(10,0)),
-    r(4, L(10,0), UNKNOWN))
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
 })
 
 test_that("insert three models ok with cross point size=1", {
   m=new(penmap::penmap)
   m$insert(2, 3.5, 2)
   (computed <- m$df())
-  expected <- r(2, L(3.5,2), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,Inf))
   ## at penalty=3 size_on=1 and 2 are optimal
   m$insert(3, 6.5, 1)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
-    r(3, L(6.5,1), UNKNOWN))
+    r(3, L(6.5,1), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,Inf))
   m$insert(4, 10, 0)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
     r(3, BOTH, L(6.5,1)),
     r(3.5, BOTH, L(10,0)),
-    r(4, L(10,0), UNKNOWN))
+    r(Inf, L(10,0), UNKNOWN))
+  cross(expected)
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
 })
 
 test_that("insert three models ok with cross point size=1 other side", {
   m=new(penmap::penmap)
   m$insert(3, 6.5, 1)
-  expected <- r(3, L(6.5,1), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(3, L(6.5,1), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   (computed <- m$df())
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,Inf))
   m$insert(2, 3.5, 2)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
-    r(3, L(6.5,1), UNKNOWN))
+    r(3, L(6.5,1), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,Inf))
   m$insert(4, 10, 0)
   (computed <- m$df())
   expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
     r(2, L(3.5,2), L(3.5,2)),
     r(3, BOTH, L(6.5,1)),
     r(3.5, BOTH, L(10,0)),
-    r(4, L(10,0), UNKNOWN))
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
 })
 
 test_that("insert three models ok with fill larger smaller", {
   m=new(penmap::penmap)
   m$insert(2, 3.5, 2)
   (computed <- m$df())
-  expected <- r(2, L(3.5,2), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,Inf))
   m$insert(4, 10, 0)
   (computed <- m$df())
   expected <- rbind(
-    r(2, L(3.5,2), UNKNOWN),
-    r(4, L(10, 0), UNKNOWN))
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), HELPFUL(3.25)),
+    r(4, L(10, 0), L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0,3.25))
   m$insert(3.25, 6.5, 1)
   (computed <- m$df())
   expected <- rbind(
-    r(2, L(3.5, 2), L(3.5, 2)),
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), L(3.5,2)),
     r(3, BOTH, L(6.5, 1)),
     r(3.5, BOTH, L(10,0)),
-    r(4, L(10,0), UNKNOWN))
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
 })
 
 test_that("breakpoints are combined", {
   m = new(penmap::penmap)
   m$insert(0, 2, 3)
   (computed <- m$df())
-  expected <- r(0, L(2,3), UNKNOWN)
+  expected <- rbind(
+    r(0, L(2,3), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), Inf)
   m$insert(2, 3.5, 2)
   (computed <- m$df())
   expected <- rbind(
     r(0, L(2,3), L(2,3)),
     r(1.5, BOTH, L(3.5, 2)),
-    r(2, L(3.5, 2), UNKNOWN))
+    r(2, L(3.5, 2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), Inf)
   m$insert(5, 10, 0)
   (computed <- m$df())
   expected <- rbind(
     r(0, L(2,3), L(2,3)),
     r(1.5, BOTH, L(3.5, 2)),
-    r(2, L(3.5, 2), UNKNOWN),
-    r(5, L(10,0), UNKNOWN))
+    r(2, L(3.5, 2), HELPFUL(3.25)),
+    r(5, L(10,0), L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 3.25)
   m$insert(3.25, 10, 0)
   (computed <- m$df())
   expected <- rbind(
     r(0, L(2,3), L(2,3)),
     r(1.5, BOTH, L(3.5, 2)),
     r(3.25, BOTH, L(10,0)),
-    r(5, L(10,0), UNKNOWN))
+    r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), numeric())
 })
 
 ## test_that("inserted penalty = larger intersect ok Inf", {
@@ -280,28 +446,39 @@ test_that("inserted penalty = larger intersect ok finite interval", {
   m = new(penmap::penmap)
   m$insert(0, 2, 103)
   (computed <- m$df())
-  expected <- r(0, L(2,103), UNKNOWN)
+  expected <- rbind(
+    r(0, L(2,103), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), Inf)
   m$insert(8, 10, 100)
   (computed <- m$df())
   expected <- rbind(
-    r(0, L(2,103), UNKNOWN),
-    r(8, L(10,100), UNKNOWN))
+    r(0, L(2,103), HELPFUL(8/3)),
+    r(8, L(10,100), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  cross(expected)
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(8/3,Inf))
   m$insert(9, 10, 100)
   (computed <- m$df())
   expected <- rbind(
-    r(0, L(2,103), UNKNOWN),
+    r(0, L(2,103), HELPFUL(8/3)),
     r(8, L(10,100), L(10,100)),
-    r(9, L(10,100), UNKNOWN))
+    r(9, L(10,100), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))    
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(8/3,Inf))
   m$insert(3.5, 6.5, 101)
   (computed <- m$df())
   expected <- rbind(
-    r(0, L(2,103), UNKNOWN),
+    r(0, L(2,103), HELPFUL(2.25)),
     r(3.5, L(6.5,101), L(10,100)),
-    r(9, L(10,100), UNKNOWN))
+    r(9, L(10,100), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  cross(expected)
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(2.25,Inf))
   m$insert(2, 3.5, 102)
   (computed <- m$df())
   expected <- rbind(
@@ -309,6 +486,8 @@ test_that("inserted penalty = larger intersect ok finite interval", {
     r(1.5, BOTH, L(3.5, 102)),
     r(3, BOTH, L(6.5, 101)),
     r(3.5, L(6.5,101), L(10,100)),
-    r(9, L(10,100), UNKNOWN))
+    r(9, L(10,100), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))    
   expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), Inf)
 })

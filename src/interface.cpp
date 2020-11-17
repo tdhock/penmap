@@ -1,6 +1,17 @@
 #include <Rcpp.h>
 #include "penmap.h"
 
+Rcpp::NumericVector helpful(penmap *inst){ 
+  int Nrow = inst->helpful_list.size();
+  Rcpp::NumericVector penalty_vec(Nrow);
+  Losses::iterator it=inst->helpful_list.begin();
+  for(int i=0; i<Nrow; i++){
+    penalty_vec[i] = it->get_penalty();
+    it++; 
+  }
+  return penalty_vec;
+}
+
 Rcpp::DataFrame df(penmap *inst){ 
   int Nrow = inst->breakpoints.size();
   Rcpp::NumericVector penalty(Nrow);
@@ -31,5 +42,6 @@ RCPP_MODULE(penmap_module){
     .constructor()
     .method("insert", &penmap::insert_loss_size)
     .method("df", &df)
+    .method("helpful", &helpful)
     ;
 }
