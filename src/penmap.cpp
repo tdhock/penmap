@@ -52,8 +52,8 @@ penmap::penmap(){
 }
 
 void penmap::set_after
-(BreakpointTree::iterator pen, Losses::iterator new_after) {
-  if(pen->after->helpful()){
+(BreakpointTree::iterator pen, Losses::iterator new_after, bool ok_to_erase) {
+  if(pen->after->helpful() && ok_to_erase){
     helpful_list.erase(pen->after);
   }
   pen->after = new_after;
@@ -84,33 +84,34 @@ void penmap::insert_on_after
      prev(smaller_pen)->after == on){
     smaller_pen->penalty = penalty;
     smaller_pen->on = on;
-    set_after(smaller_pen, after);
+    set_after(smaller_pen, after, true);
     return;
   }
   if(larger_pen != breakpoints.end() &&
      larger_pen->penalty == penalty){
     larger_pen->on = on;
-    set_after(larger_pen, after);
+    set_after(larger_pen, after, true);
     return;
   }
   if(smaller_pen != breakpoints.end() &&
      smaller_pen->penalty == penalty){
     smaller_pen->on = on;
-    set_after(smaller_pen, after);
+    set_after(smaller_pen, after, true);
     return;
   }
   // no way to resize neighboring entries, now see if there is a
   // nearby UNKNOWN to update and then insert a new entry.
   if(smaller_pen != breakpoints.end() &&
      smaller_pen->after->unknown()){
+    bool ok_to_erase = smaller_pen->after != after;
     if(smaller_pen->on == on){
-      set_after(smaller_pen, on);
+      set_after(smaller_pen, on, ok_to_erase);
     }
     if(smaller_pen->on == BOTH && on != BOTH){
-      set_after(smaller_pen, on);
+      set_after(smaller_pen, on, ok_to_erase);
     }
     if(smaller_pen->on != BOTH && on == BOTH){
-      set_after(smaller_pen, smaller_pen->on);
+      set_after(smaller_pen, smaller_pen->on, ok_to_erase);
     }
   }
   if(smaller_pen != breakpoints.end() &&
@@ -174,10 +175,11 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
       larger_pen_size_diff==0;
     if(penalty == other_lambda && adjacent_same_size){ 
       // there are no other models between smaller and larger.
-      set_after(smaller_pen, smaller_pen->on);
+      set_after(smaller_pen, smaller_pen->on, true);
       if(smaller_pen != breakpoints.begin() &&
 	 smaller_pen->after == prev(smaller_pen)->after){
-	breakpoints.erase(smaller_pen);
+	smaller_pen = prev(smaller_pen);
+	breakpoints.erase(next(smaller_pen));
       }
       insert_on_after(other_lambda, BOTH, larger_pen->on);
       return;
@@ -194,7 +196,7 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   Losses::iterator m = new_optimal(loss, size);
   if(smaller_lambda < penalty && smaller_lambda < INFINITY &&
      1 < smaller_pen_size_diff){
-    set_after(smaller_pen, new_helpful(smaller_lambda));
+    set_after(smaller_pen, new_helpful(smaller_lambda), true);
   }
   if(larger_pen_size_diff == 1 && smaller_pen_size_diff == 1){
     insert_on_after(smaller_lambda, BOTH, m);
@@ -230,7 +232,7 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
       insert_on_after(smaller_lambda, BOTH, m);
       insert_on_after(penalty, m, after);
     }else{
-      set_after(smaller_pen, smaller_pen->on);
+      set_after(smaller_pen, smaller_pen->on, true);
       insert_on_after(penalty, m, after);
     }
     return;
