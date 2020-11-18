@@ -40,6 +40,7 @@ public:
   void erase_pair(BreakpointTree::iterator, BreakpointTree::iterator);
   void make_both(BreakpointTree::iterator, BreakpointTree::iterator);
   void already_known();
+  void error_size();
   penmap();
   Losses::iterator new_optimal(double loss, int size);
   Losses::iterator new_helpful(double pen);

@@ -153,6 +153,10 @@ void penmap::already_known(){
   throw std::domain_error("penalty already known");
 }
 
+void penmap::error_size(){
+  throw std::domain_error("model sizes must be non-increasing as penalties increase");
+}
+
 void penmap::insert_loss_size(double penalty, double loss, int size){
   if(penalty == INFINITY && 0 < size){
     throw std::domain_error("size should be zero with infinite penalty");
@@ -162,6 +166,9 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   // not considered to go before val (can be same value), or
   // set::end if all elements are considered to go before val.
   BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
+  if(larger_or_same->on->known() && size < larger_or_same->on->size){
+    error_size();
+  }
   bool do_insert = true;
   if(larger_or_same->penalty == penalty){
     if(larger_or_same->on->known()){
@@ -170,9 +177,14 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
       do_insert = false;
     }
   }
-  if(larger_or_same != breakpoints.begin() &&
-     prev(larger_or_same)->after->size == size){
-    already_known();
+  if(larger_or_same != breakpoints.begin()){
+    if(prev(larger_or_same)->after->size == size){
+      already_known();
+    }
+    if(prev(larger_or_same)->on->known() &&
+       prev(larger_or_same)->on->size < size){
+      error_size();
+    }
   }
   Losses::iterator m;
   if(larger_or_same->on->size == size){

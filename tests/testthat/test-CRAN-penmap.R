@@ -280,7 +280,7 @@ test_that("insert three models ok with cross point size=2", {
   expect_equal(sort(m$helpful()), 0)
 })
 
-penaltyLearning::modelSelection(data.frame(loss=c(6.5,3.5,1.5),complexity=c(1,2,3)))
+##penaltyLearning::modelSelection(data.frame(loss=c(6.5,3.5,1.5),complexity=c(1,2,3)))
 test_that("insert size=2 alone at pen=3", {
   m=new(penmap::penmap)
   m$insert(3, 3.5, 2)
@@ -409,7 +409,7 @@ test_that("insert three models ok with fill larger smaller", {
   expect_equal(sort(m$helpful()), 0)
 })
 
-penaltyLearning::modelSelection(data.frame(loss=c(10,3.5),complexity=c(0,2)))
+##penaltyLearning::modelSelection(data.frame(loss=c(10,3.5),complexity=c(0,2)))
 test_that("breakpoints are combined", {
   m = new(penmap::penmap)
   m$insert(0, 2, 3)
@@ -449,35 +449,7 @@ test_that("breakpoints are combined", {
   expect_equal(sort(m$helpful()), numeric())
 })
 
-## test_that("inserted penalty = larger intersect ok Inf", {
-##   m = new(penmap::penmap)
-##   m$insert(0, 2, 3)
-##   expect_equal(m$df(), data.frame(penalty=0, loss_on=2, size_on=3, loss_after=Inf, size_after=-1))
-##   m$insert(Inf, 10, 0)
-##   expect_equal(m$df(), data.frame(penalty=c(0, Inf), loss_on=c(2,10), size_on=c(3,0), loss_after=Inf, size_after=-1))
-##   m$insert(3.5, 6.5, 1)
-##   expect_equal(m$df(), data.frame(penalty=c(0, 3.5), loss_on=c(2,6.5), size_on=c(3,1), loss_after=c(Inf, 10), size_after=c(-1, 0)))
-##   m$insert(2, 3.5, 2)
-##   expect_equal(m$df(), data.frame(penalty=c(0, 1.5, 3, 3.5), loss_on=c(2, 3.5, 6.5, 10), size_on=c(3,2,1,0), loss_after=c(2,3.5,6.5,10), size_after=c(3,2,1,0)))
-## })
-
-## test_that("inserted penalty = larger intersect ok finite", {
-##   m = new(penmap::penmap)
-##   m$insert(0, 2, 103)
-##   (computed <- m$df())
-##   expect_equal(computed, data.frame(penalty=0, loss_on=2, size_on=103, loss_after=Inf, size_after=-1))
-##   m$insert(8, 10, 100)
-##   (computed <- m$df())
-##   expect_equal(computed, data.frame(penalty=c(0, 8), loss_on=c(2,10), size_on=c(103,100), loss_after=Inf, size_after=-1))
-##   m$insert(3.5, 6.5, 101)
-##   (computed <- m$df())
-##   expect_equal(computed, data.frame(penalty=c(0, 3.5), loss_on=c(2,6.5), size_on=c(103,101), loss_after=c(Inf, 10), size_after=c(-1, 100)))
-##   m$insert(2, 3.5, 102)
-##   (computed <- m$df())
-##   expect_equal(computed, data.frame(penalty=c(0, 1.5, 3, 3.5), loss_on=c(2, 3.5, 6.5, 10), size_on=c(103,102,101,100), loss_after=c(2,3.5,6.5,10), size_after=c(103,102,101,100)))
-## })
-
-penaltyLearning::modelSelection(data.frame(loss=c(2,3.5,6.5,10),complexity=103:100))
+##penaltyLearning::modelSelection(data.frame(loss=c(2,3.5,6.5,10),complexity=103:100))
 test_that("inserted penalty = larger intersect ok finite interval", {
   m = new(penmap::penmap)
   m$insert(0, 2, 103)
@@ -542,3 +514,10 @@ test_that("BOTH at end is ok", {
   expect_equal(computed, expected)
 })
   
+test_that("larger penalty with larger model error", {
+  m <- new(penmap::penmap)
+  m$insert(1, 2, 10)
+  expect_error({
+    m$insert(2, 3, 5)
+  }, "model sizes must be non-increasing as penalties increase")
+})
