@@ -22,7 +22,7 @@ public:
   mutable Losses::iterator on, after;
   double penalty;
   breakInfo(double p);
-  breakInfo(double p_, Losses::iterator on_it, Losses::iterator after_it);
+  breakInfo(double, Losses::iterator on_it, Losses::iterator after_it);
 };
 
 typedef std::set<breakInfo> BreakpointTree;
@@ -41,6 +41,7 @@ public:
   void make_both(BreakpointTree::iterator, BreakpointTree::iterator);
   void already_known();
   void error_size();
+  void error_loss();
   penmap();
   Losses::iterator new_optimal(double loss, int size);
   Losses::iterator new_helpful(double pen);

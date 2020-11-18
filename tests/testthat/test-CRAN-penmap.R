@@ -474,7 +474,7 @@ test_that("inserted penalty = larger intersect ok finite interval", {
     r(0, L(2,103), HELPFUL(8/3)),
     r(8, L(10,100), L(10,100)),
     r(9, L(10,100), UNKNOWN),
-    r(Inf, UNKNOWN, HELPFUL(Inf)))    
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
   expect_equal(sort(m$helpful()), c(8/3,Inf))
   m$insert(3.5, 6.5, 101)
@@ -495,7 +495,7 @@ test_that("inserted penalty = larger intersect ok finite interval", {
     r(3, BOTH, L(6.5, 101)),
     r(3.5, BOTH, L(10,100)),
     r(9, L(10,100), UNKNOWN),
-    r(Inf, UNKNOWN, HELPFUL(Inf)))    
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
   expect_equal(sort(m$helpful()), Inf)
 })
@@ -513,11 +513,42 @@ test_that("BOTH at end is ok", {
     r(Inf, L(10,0), UNKNOWN))
   expect_equal(computed, expected)
 })
-  
-test_that("larger penalty with larger model error", {
+
+test_that("smaller penalty with smaller size error", {
   m <- new(penmap::penmap)
-  m$insert(1, 2, 10)
+  m$insert(2, 0.5, 10)
   expect_error({
-    m$insert(2, 3, 5)
+    m$insert(1, 3.5, 5)
   }, "model sizes must be non-increasing as penalties increase")
+})
+
+test_that("larger penalty with larger size error", {
+  m <- new(penmap::penmap)
+  m$insert(1, 3.5, 5)
+  expect_error({
+    m$insert(2, 0.5, 10)
+  }, "model sizes must be non-increasing as penalties increase")
+})
+
+test_that("larger penalty, smaller loss with smaller size error", {
+  m <- new(penmap::penmap)
+  m$insert(1, 3.5, 5)
+  expect_error({
+    m$insert(2, 0.5, 0)
+  }, "loss values must be non-decreasing as penalties increase")
+})
+
+test_that("smaller penalty, larger loss with larger size error", {
+  m <- new(penmap::penmap)
+  m$insert(2, 0.5, 0)
+  expect_error({
+    m$insert(1, 3.5, 5)
+  }, "loss values must be non-decreasing as penalties increase")
+})
+
+test_that("error for negative size", {
+  m <- new(penmap::penmap)
+  expect_error({
+    m$insert(2, 5.5, -1)
+  }, "size must be non-negative")
 })

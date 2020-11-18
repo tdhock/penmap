@@ -20,8 +20,11 @@ bool selectedModel::known(){
 breakInfo::breakInfo(double p)
   : penalty(p) {}
 
-breakInfo::breakInfo(double p, Losses::iterator o, Losses::iterator a)
-  : penalty(p), on(o), after(a) {}
+breakInfo::breakInfo(double p, Losses::iterator o, Losses::iterator a){
+  penalty = p;
+  on = o;
+  after = a;
+}
 
 
 bool operator<(const breakInfo& l, const breakInfo& r){
@@ -157,17 +160,29 @@ void penmap::error_size(){
   throw std::domain_error("model sizes must be non-increasing as penalties increase");
 }
 
+void penmap::error_loss(){
+  throw std::domain_error("loss values must be non-decreasing as penalties increase");
+}  
+
 void penmap::insert_loss_size(double penalty, double loss, int size){
   if(penalty == INFINITY && 0 < size){
     throw std::domain_error("size should be zero with infinite penalty");
+  }
+  if(size < 0){
+    throw std::domain_error("size must be non-negative");
   }
   breakInfo new_break(penalty);
   // An iterator to the the first element in the container which is
   // not considered to go before val (can be same value), or
   // set::end if all elements are considered to go before val.
   BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
-  if(larger_or_same->on->known() && size < larger_or_same->on->size){
-    error_size();
+  if(larger_or_same->on->known()){
+    if(size < larger_or_same->on->size){
+      error_size();
+    }
+    if(larger_or_same->on->loss < loss){
+      error_loss();
+    } 
   }
   bool do_insert = true;
   if(larger_or_same->penalty == penalty){
@@ -181,9 +196,13 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
     if(prev(larger_or_same)->after->size == size){
       already_known();
     }
-    if(prev(larger_or_same)->on->known() &&
-       prev(larger_or_same)->on->size < size){
-      error_size();
+    if(prev(larger_or_same)->on->known()){
+      if(prev(larger_or_same)->on->size < size){
+	error_size();
+      }
+      if(loss < prev(larger_or_same)->on->loss){
+	error_loss();
+      }
     }
   }
   Losses::iterator m;
