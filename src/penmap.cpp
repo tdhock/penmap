@@ -153,32 +153,21 @@ void already_known(){
   throw std::domain_error("penalty already known");
 }
 
-void error_size(){
-  throw std::domain_error("model sizes must be non-increasing as penalties increase");
-}
-
-void error_loss(){
-  throw std::domain_error("loss values must be non-decreasing as penalties increase");
-}
-
-void error_crossing(){
-  throw std::domain_error("model/penalty to insert inconsistent with previous data");
-}
-
 void error_if_inconsistent
 (double penalty_before, double loss_before, int size_before,
  double penalty_after, double loss_after, int size_after){
   if(size_before < size_after){
-    error_size();
-  }
-  if(loss_after < loss_before){
-    error_loss();
+    throw std::domain_error
+      ("model sizes must be non-increasing as penalties increase");
+  }else if(size_after < size_before && loss_after < loss_before){
+    throw std::domain_error
+      ("loss values must be non-decreasing as penalties increase");
   }
   int size_diff = size_before - size_after;
   if(0 < size_diff){
     double cross = (loss_after - loss_before)/size_diff;
     if(cross < penalty_before || penalty_after < cross){
-      error_crossing();
+      throw std::domain_error("model/penalty to insert inconsistent with previous data");
     }
   }
 }  
