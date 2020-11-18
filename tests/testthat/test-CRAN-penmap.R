@@ -527,3 +527,18 @@ test_that("inserted penalty = larger intersect ok finite interval", {
   expect_equal(computed, expected)
   expect_equal(sort(m$helpful()), Inf)
 })
+
+test_that("BOTH at end is ok", {
+  m <- new(penmap::penmap)
+  m$insert(Inf, 10, 0)
+  (computed <- m$df())
+  m$insert(3.1, 6.5, 1)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(3.1, L(6.5,1), L(6.5,1)),
+    r(3.5, BOTH, L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
+  expect_equal(computed, expected)
+})
+  

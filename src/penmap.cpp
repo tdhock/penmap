@@ -83,6 +83,7 @@ void penmap::add_breaks
   if(size_diff == 1){
     if(smaller_pen->penalty < cross && cross < larger_pen->penalty){
       breakpoints.emplace_hint(larger_pen, cross, BOTH, larger_pen->on);
+      //printf("cross BOTH\n");
     }else{
       set_after(smaller_pen, UNKNOWN);
     }
@@ -97,13 +98,16 @@ void penmap::fill_pair
   if(smaller_pen->after->unknown()){
     // fill in unknown after if possible.
     if(smaller_pen->on->known() && larger_pen->on == BOTH){
+      //printf("filling from smaller larger is BOTH\n");
       set_after(smaller_pen, smaller_pen->on);
     }
     if(smaller_pen->on == BOTH && larger_pen->on->known()){
+      //printf("filling from larger smaller is BOTH\n");
       set_after(smaller_pen, larger_pen->on);
     }
     if(smaller_pen->on->known() && larger_pen->on->known() &&
        smaller_pen->on == larger_pen->on){
+      //printf("filling from smaller equal\n");
       set_after(smaller_pen, smaller_pen->on);
     }
   }
@@ -114,7 +118,7 @@ void penmap::make_both
  BreakpointTree::iterator larger_pen){
   int size_diff = smaller_pen->on->size - larger_pen->on->size;
   double cross = (larger_pen->on->loss - smaller_pen->on->loss)/size_diff;
-  if(size_diff <= 2){
+  if(size_diff <= 2 && cross < INFINITY){
     if(smaller_pen->penalty == cross){
       //printf("cross smaller pen=%f\n", smaller_pen->penalty);
       if(smaller_pen != breakpoints.begin() &&
