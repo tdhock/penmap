@@ -51,9 +51,15 @@ penmap::penmap(){
     (breakpoints.end(), INFINITY, UNKNOWN, new_helpful(INFINITY));
 }
 
+void penmap::set_on
+(BreakpointTree::iterator pen, Losses::iterator new_on){
+  set_after(pen, UNKNOWN);
+  pen->on = new_on;
+}
+
 void penmap::set_after
-(BreakpointTree::iterator pen, Losses::iterator new_after, bool ok_to_erase) {
-  if(pen->after->helpful() && ok_to_erase){
+(BreakpointTree::iterator pen, Losses::iterator new_after) {
+  if(pen->after->helpful()){
     helpful_list.erase(pen->after);
   }
   pen->after = new_after;
@@ -63,68 +69,84 @@ bool selectedModel::helpful(){
   return size == HELPFUL_SIZE;
 }
 
-void penmap::insert_on_after
-(double penalty, 
- Losses::iterator on, 
- Losses::iterator after){
-  if(smaller_pen != breakpoints.end() && smaller_pen->after == on &&
-     larger_pen != breakpoints.end() && larger_pen->on == on){
-    //already optimal, nothing to do.
+void penmap::add_breaks
+(BreakpointTree::iterator smaller_pen,
+ BreakpointTree::iterator larger_pen){
+  if(smaller_pen->on->unknown() || larger_pen->on->unknown()){
     return;
   }
-  if(larger_pen != breakpoints.end() &&
-     larger_pen->after == after &&
-     after->known()){
-    larger_pen->penalty = penalty;
-    larger_pen->on = on;
+  int size_diff = smaller_pen->on->size - larger_pen->on->size;
+  if(size_diff == 0){
     return;
   }
-  if(smaller_pen != breakpoints.end() &&
-     smaller_pen != breakpoints.begin() &&
-     prev(smaller_pen)->after == on){
-    smaller_pen->penalty = penalty;
-    smaller_pen->on = on;
-    set_after(smaller_pen, after, true);
-    return;
-  }
-  if(larger_pen != breakpoints.end() &&
-     larger_pen->penalty == penalty){
-    larger_pen->on = on;
-    set_after(larger_pen, after, true);
-    return;
-  }
-  if(smaller_pen != breakpoints.end() &&
-     smaller_pen->penalty == penalty){
-    smaller_pen->on = on;
-    set_after(smaller_pen, after, true);
-    return;
-  }
-  // no way to resize neighboring entries, now see if there is a
-  // nearby UNKNOWN to update and then insert a new entry.
-  if(smaller_pen != breakpoints.end() &&
-     smaller_pen->after->unknown()){
-    bool ok_to_erase = smaller_pen->after != after;
-    if(smaller_pen->on == on){
-      set_after(smaller_pen, on, ok_to_erase);
+  double cross = (larger_pen->on->loss - smaller_pen->on->loss)/size_diff;
+  if(size_diff == 1){
+    if(smaller_pen->penalty < cross && cross < larger_pen->penalty){
+      breakpoints.emplace_hint(larger_pen, cross, BOTH, larger_pen->on);
+    }else{
+      set_after(smaller_pen, UNKNOWN);
     }
-    if(smaller_pen->on == BOTH && on != BOTH){
-      set_after(smaller_pen, on, ok_to_erase);
+  }else{
+    set_after(smaller_pen, new_helpful(cross));
+  }
+}
+
+void penmap::fill_pair
+(BreakpointTree::iterator smaller_pen,
+ BreakpointTree::iterator larger_pen){
+  if(smaller_pen->after->unknown()){
+    // fill in unknown after if possible.
+    if(smaller_pen->on->known() && larger_pen->on == BOTH){
+      set_after(smaller_pen, smaller_pen->on);
     }
-    if(smaller_pen->on != BOTH && on == BOTH){
-      set_after(smaller_pen, smaller_pen->on, ok_to_erase);
+    if(smaller_pen->on == BOTH && larger_pen->on->known()){
+      set_after(smaller_pen, larger_pen->on);
+    }
+    if(smaller_pen->on->known() && larger_pen->on->known() &&
+       smaller_pen->on == larger_pen->on){
+      set_after(smaller_pen, smaller_pen->on);
     }
   }
-  if(smaller_pen != breakpoints.end() &&
-     smaller_pen != breakpoints.begin() &&
-     prev(smaller_pen)->after != smaller_pen->after &&
-     prev(smaller_pen)->after->known() &&
-     smaller_pen->after->known()){
-    smaller_pen->on = BOTH;
+}
+
+void penmap::make_both
+(BreakpointTree::iterator smaller_pen,
+ BreakpointTree::iterator larger_pen){
+  int size_diff = smaller_pen->on->size - larger_pen->on->size;
+  double cross = (larger_pen->on->loss - smaller_pen->on->loss)/size_diff;
+  if(size_diff <= 2){
+    if(smaller_pen->penalty == cross){
+      //printf("cross smaller pen=%f\n", smaller_pen->penalty);
+      if(smaller_pen != breakpoints.begin() &&
+	 prev(smaller_pen)->after->known()){
+	// only write if we won't be losing information about this
+	// model (it exists before).
+	//printf("BOTH smaller pen=%f\n", smaller_pen->penalty);
+	smaller_pen->on = BOTH;
+      }
+      set_after(smaller_pen, larger_pen->on);
+    }
+    if(larger_pen->penalty == cross){
+      //printf("cross larger pen=%f\n", larger_pen->penalty);
+      if(larger_pen->after->known()){
+	//printf("BOTH larger pen=%f\n", larger_pen->penalty);
+	larger_pen->on = BOTH;
+      }
+      set_after(smaller_pen, smaller_pen->on);
+    }
   }
-  smaller_pen = breakpoints.emplace_hint(larger_pen, penalty, on, after);
-  if(larger_pen == breakpoints.end() && on->size==0 && penalty<INFINITY){
-    insert_on_after(INFINITY, on, UNKNOWN);
+}  
+
+void penmap::erase_pair
+(BreakpointTree::iterator smaller_pen,
+ BreakpointTree::iterator larger_pen){
+  if(smaller_pen->after == larger_pen->after &&
+     larger_pen->after->known()){
+    breakpoints.erase(larger_pen);
   }
+}
+void penmap::already_known(){
+  throw std::domain_error("penalty already known");
 }
 
 void penmap::insert_loss_size(double penalty, double loss, int size){
@@ -135,107 +157,68 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   // An iterator to the the first element in the container which is
   // not considered to go before val (can be same value), or
   // set::end if all elements are considered to go before val.
-  double larger_lambda, smaller_lambda;
-  larger_pen = breakpoints.lower_bound(new_break);
-  double larger_pen_size_diff = INFINITY;
-  double smaller_pen_size_diff = INFINITY;
-  // Compute larger/smaller size differences.
-  if(larger_pen == breakpoints.begin()){
-    smaller_pen = breakpoints.end();//marker for does not exist.
+  BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
+  bool do_insert = true;
+  if(larger_or_same->penalty == penalty){
+    if(larger_or_same->on->known()){
+      already_known();
+    }else{//case for penalty=0 or Inf
+      do_insert = false;
+    }
+  }
+  if(larger_or_same != breakpoints.begin() &&
+     prev(larger_or_same)->after->size == size){
+    already_known();
+  }
+  Losses::iterator m;
+  if(larger_or_same->on->size == size){
+    m = larger_or_same->on;
+  }else if(larger_or_same != breakpoints.begin() &&
+	   prev(larger_or_same)->on->size == size){
+    m = prev(larger_or_same)->on;
   }else{
-    smaller_pen = prev(larger_pen);
-    if(smaller_pen->after->known()){
-      throw std::domain_error("penalty already known");
-    }
-    smaller_lambda = crossing_point
-      (loss, smaller_pen->on->loss,
-       size, smaller_pen->on->size);
-    smaller_pen_size_diff = smaller_pen->on->size - size;
+    m = new_optimal(loss, size);
   }
-  if(larger_pen != breakpoints.end()){
-    if(larger_pen->penalty == penalty){
-      if(larger_pen->on->known()){
-	throw std::domain_error("penalty already known");
-      }else{//case for penalty=0 or Inf
-	insert_on_after(penalty, new_optimal(loss, size), UNKNOWN);
-	return;
-      }
-    }	
-    larger_lambda = crossing_point
-      (loss, larger_pen->on->loss,
-       size, larger_pen->on->size);
-    larger_pen_size_diff = size - larger_pen->on->size;
+  BreakpointTree::iterator new_it;
+  if(do_insert){
+    new_it = breakpoints.emplace_hint(larger_or_same, penalty, m, UNKNOWN);
+  }else{ 
+    new_it = larger_or_same;
+    set_on(new_it, m);
   }
-  if(larger_pen != breakpoints.end() && larger_pen != breakpoints.begin()){
-    double other_lambda = crossing_point
-      (smaller_pen->on->loss, larger_pen->on->loss, 
-       smaller_pen->on->size, larger_pen->on->size);
-    bool adjacent_same_size =
-      smaller_pen_size_diff==0 ||
-      larger_pen_size_diff==0;
-    if(penalty == other_lambda && adjacent_same_size){ 
-      // there are no other models between smaller and larger.
-      set_after(smaller_pen, smaller_pen->on, true);
-      if(smaller_pen != breakpoints.begin() &&
-	 smaller_pen->after == prev(smaller_pen)->after){
-	smaller_pen = prev(smaller_pen);
-	breakpoints.erase(next(smaller_pen));
-      }
-      insert_on_after(other_lambda, BOTH, larger_pen->on);
-      return;
-    }
-  }
-  if(smaller_pen_size_diff == 0){
-    insert_on_after(penalty, smaller_pen->on, smaller_pen->after);
-    return;
-  }
-  if(larger_pen_size_diff == 0){
-    insert_on_after(penalty, larger_pen->on, larger_pen->on);
-    return;
-  }
-  Losses::iterator m = new_optimal(loss, size);
-  if(smaller_lambda < penalty && smaller_lambda < INFINITY &&
-     1 < smaller_pen_size_diff){
-    set_after(smaller_pen, new_helpful(smaller_lambda), true);
-  }
-  if(larger_pen_size_diff == 1 && smaller_pen_size_diff == 1){
-    insert_on_after(smaller_lambda, BOTH, m);
-    insert_on_after(larger_lambda, BOTH, larger_pen->on);
-    return;
-  }
-  if(larger_pen_size_diff == 1){
-    if(penalty < larger_lambda){
-      insert_on_after(penalty, m, m);
-      if(larger_lambda < larger_pen->penalty){
-	insert_on_after(larger_lambda, BOTH, larger_pen->on);
-      }
-    }else{
-      insert_on_after(penalty, m, larger_pen->on);
-    }
-    return;
-  }
-  // special case for size=0 which we know is optimal for all larger
-  // penalties.
-  Losses::iterator after;
-  if(size == 0){
-    insert_on_after(INFINITY, m, UNKNOWN);
-    after = m;
+  BreakpointTree::iterator next_it = next(new_it), last, first;
+  if(new_it == breakpoints.begin()){
+    first = new_it;
   }else{
-    if(larger_lambda == INFINITY){
-      after = UNKNOWN;
+    add_breaks(prev(new_it), new_it);
+    if(prev(new_it) == breakpoints.begin()){
+      first = prev(new_it);
+    }else if(prev(prev(new_it)) == breakpoints.begin()){
+      first = prev(prev(new_it));
     }else{
-      after = new_helpful(larger_lambda);
+      first = prev(prev(prev(new_it)));
     }
   }
-  if(smaller_pen_size_diff == 1){
-    if(smaller_lambda < penalty){
-      insert_on_after(smaller_lambda, BOTH, m);
-      insert_on_after(penalty, m, after);
+  if(next_it == breakpoints.end()){
+    last = first;
+  }else{
+    add_breaks(new_it, next_it);
+    if(next(next_it) == breakpoints.end()){
+      last = next_it;
     }else{
-      set_after(smaller_pen, smaller_pen->on, true);
-      insert_on_after(penalty, m, after);
+      last = next(next_it);
     }
-    return;
+    if(size == 0 && next_it->penalty == INFINITY){
+      set_on(next_it, new_it->on);
+    }
   }
-  insert_on_after(penalty, m, after);
+  for(BreakpointTree::iterator it=first; it != last; it++){
+    fill_pair(it, next(it));
+  }
+  for(BreakpointTree::iterator it=first; it != last; it++){
+    make_both(it, next(it));
+  }
+  for(BreakpointTree::iterator it=first; it != last && next(it) != breakpoints.end(); it++){
+    erase_pair(it, next(it));
+  }
 }

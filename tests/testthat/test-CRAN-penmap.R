@@ -280,6 +280,40 @@ test_that("insert three models ok with cross point size=2", {
   expect_equal(sort(m$helpful()), 0)
 })
 
+penaltyLearning::modelSelection(data.frame(loss=c(6.5,3.5,1.5),complexity=c(1,2,3)))
+test_that("insert size=2 alone at pen=3", {
+  m=new(penmap::penmap)
+  m$insert(3, 3.5, 2)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(3, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  ## at penalty=3 size_on=1 and 2 are optimal
+  m$insert(3.1, 6.5, 1)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(3, L(3.5,2), L(6.5,1)),
+    r(3.1, L(6.5,1), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  m$insert(1.9, 1.5, 3)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(1.9, L(1.5,3), L(1.5,3)),
+    r(2, BOTH, L(3.5,2)),
+    r(3, BOTH, L(6.5,1)),
+    r(3.1, L(6.5,1), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+})
+
 test_that("insert three models ok with cross point size=1", {
   m=new(penmap::penmap)
   m$insert(2, 3.5, 2)
@@ -375,6 +409,7 @@ test_that("insert three models ok with fill larger smaller", {
   expect_equal(sort(m$helpful()), 0)
 })
 
+penaltyLearning::modelSelection(data.frame(loss=c(10,3.5),complexity=c(0,2)))
 test_that("breakpoints are combined", {
   m = new(penmap::penmap)
   m$insert(0, 2, 3)
@@ -442,6 +477,7 @@ test_that("breakpoints are combined", {
 ##   expect_equal(computed, data.frame(penalty=c(0, 1.5, 3, 3.5), loss_on=c(2, 3.5, 6.5, 10), size_on=c(103,102,101,100), loss_after=c(2,3.5,6.5,10), size_after=c(103,102,101,100)))
 ## })
 
+penaltyLearning::modelSelection(data.frame(loss=c(2,3.5,6.5,10),complexity=103:100))
 test_that("inserted penalty = larger intersect ok finite interval", {
   m = new(penmap::penmap)
   m$insert(0, 2, 103)
@@ -485,22 +521,9 @@ test_that("inserted penalty = larger intersect ok finite interval", {
     r(0, L(2,103), L(2,103)),
     r(1.5, BOTH, L(3.5, 102)),
     r(3, BOTH, L(6.5, 101)),
-    r(3.5, L(6.5,101), L(10,100)),
+    r(3.5, BOTH, L(10,100)),
     r(9, L(10,100), UNKNOWN),
     r(Inf, UNKNOWN, HELPFUL(Inf)))    
   expect_equal(computed, expected)
   expect_equal(sort(m$helpful()), Inf)
 })
-
-test_that("crash?", {
-  m <- new(penmap::penmap)
-  m$insert(4, 10, 0)
-  m$df()
-  m$helpful()
-  m$insert(0.5, 2, 3)
-  m$df()
-  m$helpful()
-  m$insert(1, 2, 3)
-  m$df()
-}) 
-

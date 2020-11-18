@@ -20,7 +20,7 @@ typedef std::list<selectedModel> Losses;
 class breakInfo {
 public:
   mutable Losses::iterator on, after;
-  mutable double penalty;
+  double penalty;
   breakInfo(double p);
   breakInfo(double p_, Losses::iterator on_it, Losses::iterator after_it);
 };
@@ -33,12 +33,15 @@ public:
   Losses::iterator UNKNOWN, BOTH;
   Losses optimal_list;
   Losses helpful_list;
-  void set_after(BreakpointTree::iterator, Losses::iterator, bool);
-  BreakpointTree::iterator smaller_pen, larger_pen;
+  void set_after(BreakpointTree::iterator, Losses::iterator);
+  void set_on(BreakpointTree::iterator, Losses::iterator);
+  void add_breaks(BreakpointTree::iterator, BreakpointTree::iterator);
+  void fill_pair(BreakpointTree::iterator, BreakpointTree::iterator);
+  void erase_pair(BreakpointTree::iterator, BreakpointTree::iterator);
+  void make_both(BreakpointTree::iterator, BreakpointTree::iterator);
+  void already_known();
   penmap();
   Losses::iterator new_optimal(double loss, int size);
   Losses::iterator new_helpful(double pen);
-  void insert_on_after
-  (double penalty, Losses::iterator on, Losses::iterator after);
   void insert_loss_size(double penalty, double loss, int size);
 };
