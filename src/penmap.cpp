@@ -31,10 +31,6 @@ bool operator<(const breakInfo& l, const breakInfo& r){
   return l.penalty < r.penalty;
 }
 
-double crossing_point(double l1, double l2, int c1, int c2){
-  return (l1-l2)/(c2-c1);
-}
-
 Losses::iterator penmap::new_optimal(double loss, int size){
   optimal_list.emplace_front(loss, size);
   return optimal_list.begin();
@@ -121,7 +117,7 @@ void penmap::make_both
  BreakpointTree::iterator larger_pen){
   int size_diff = smaller_pen->on->size - larger_pen->on->size;
   double cross = (larger_pen->on->loss - smaller_pen->on->loss)/size_diff;
-  if(size_diff <= 2 && cross < INFINITY){
+  if(cross < INFINITY){
     if(smaller_pen->penalty == cross){
       //printf("cross smaller pen=%f\n", smaller_pen->penalty);
       if(smaller_pen != breakpoints.begin() &&
@@ -152,16 +148,39 @@ void penmap::erase_pair
     breakpoints.erase(larger_pen);
   }
 }
-void penmap::already_known(){
+
+void already_known(){
   throw std::domain_error("penalty already known");
 }
 
-void penmap::error_size(){
+void error_size(){
   throw std::domain_error("model sizes must be non-increasing as penalties increase");
 }
 
-void penmap::error_loss(){
+void error_loss(){
   throw std::domain_error("loss values must be non-decreasing as penalties increase");
+}
+
+void error_crossing(){
+  throw std::domain_error("model/penalty to insert inconsistent with previous data");
+}
+
+void error_if_inconsistent
+(double penalty_before, double loss_before, int size_before,
+ double penalty_after, double loss_after, int size_after){
+  if(size_before < size_after){
+    error_size();
+  }
+  if(loss_after < loss_before){
+    error_loss();
+  }
+  int size_diff = size_before - size_after;
+  if(0 < size_diff){
+    double cross = (loss_after - loss_before)/size_diff;
+    if(cross < penalty_before || penalty_after < cross){
+      error_crossing();
+    }
+  }
 }  
 
 void penmap::insert_loss_size(double penalty, double loss, int size){
@@ -177,12 +196,11 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   // set::end if all elements are considered to go before val.
   BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
   if(larger_or_same->on->known()){
-    if(size < larger_or_same->on->size){
-      error_size();
-    }
-    if(larger_or_same->on->loss < loss){
-      error_loss();
-    } 
+    error_if_inconsistent
+      (penalty, loss, size,
+       larger_or_same->penalty,
+       larger_or_same->on->loss,
+       larger_or_same->on->size);
   }
   bool do_insert = true;
   if(larger_or_same->penalty == penalty){
@@ -197,13 +215,12 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
       already_known();
     }
     if(prev(larger_or_same)->on->known()){
-      if(prev(larger_or_same)->on->size < size){
-	error_size();
-      }
-      if(loss < prev(larger_or_same)->on->loss){
-	error_loss();
-      }
-    }
+      error_if_inconsistent
+	(prev(larger_or_same)->penalty,
+	 prev(larger_or_same)->on->loss,
+	 prev(larger_or_same)->on->size,
+	 penalty, loss, size);
+    }	 
   }
   Losses::iterator m;
   if(larger_or_same->on->size == size){

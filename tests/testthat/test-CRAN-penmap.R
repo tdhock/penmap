@@ -552,3 +552,58 @@ test_that("error for negative size", {
     m$insert(2, 5.5, -1)
   }, "size must be non-negative")
 })
+
+test_that("error when penalty < cross", {
+  m <- new(penmap::penmap)
+  p1 <- 5e-03
+  l1 <- 3.758269e-02
+  s1 <- 9
+  m$insert(p1, l1, s1)
+  l2 <- 0.0589609150
+  s2 <- 5
+  expect_error({
+    m$insert(5.3e-03, l2, s2)
+  }, class = "std::domain_error")
+  p2 <- 5.4e-03
+  m$insert(p2, l2, s2)
+  (computed <- m$df())
+  cr <- (l2-l1)/(s1-s2)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(p1, L(l1,s1), HELPFUL(cr)),
+    r(p2, L(l2,s2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  m$insert(cr, l2, s2)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(p1, L(l1,s1), L(l1,s1)),
+    r(cr, BOTH, L(l2,s2)),
+    r(p2, L(l2,s2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+})
+
+test_that("insert on cross l1 opt", {
+  m <- new(penmap::penmap)
+  p1 <- 5e-03
+  l1 <- 3.758269e-02
+  s1 <- 9
+  m$insert(p1, l1, s1)
+  l2 <- 0.0589609150
+  s2 <- 5
+  p2 <- 5.4e-03
+  m$insert(p2, l2, s2)
+  (computed <- m$df())
+  cr <- (l2-l1)/(s1-s2)
+  m$insert(cr, l1, s1)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(p1, L(l1,s1), L(l1,s1)),
+    r(cr, BOTH, L(l2,s2)),
+    r(p2, L(l2,s2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+})
