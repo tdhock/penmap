@@ -651,3 +651,36 @@ test_that("breakpoint filled even with loss inconsistent with before", {
     r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
 })
+
+test_that("must_insert when helpful", {
+  m=new(penmap::penmap)
+  m$insert(2, 3.5, 2)
+  (computed <- m$df())
+  expected <- r(2, L(3.5,2), UNKNOWN)
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, Inf))
+  m$insert(4, 10, 0)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), HELPFUL(3.25)),
+    r(4, L(10,0), L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
+  cross(expected)
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), c(0, 3.25))
+  m$insert(3.25, 6.5, 3)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(2, L(3.5,2), L(3.5,2)),
+    r(3.25, BOTH, L(10,0)),
+    r(Inf, L(10,0), UNKNOWN))
+  cross(expected)
+  expect_equal(computed, expected)
+  expect_equal(sort(m$helpful()), 0)
+})

@@ -186,19 +186,13 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   // set::end if all elements are considered to go before val.
   BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
   bool do_insert = true;
-  bool do_checks = true;
-  if(larger_or_same != breakpoints.begin()){
-    bool same_size =
-      size == prev(larger_or_same)->on->size ||
-      size == larger_or_same->on->size;
-    bool penalty_is_helpful = 
-      prev(larger_or_same)->after->helpful() &&
-      penalty == prev(larger_or_same)->after->get_penalty();
-    if(same_size && penalty_is_helpful){
-      do_checks = false;
-    }
+  bool must_insert = false;
+  if(larger_or_same != breakpoints.begin() &&
+     prev(larger_or_same)->after->helpful() &&
+     penalty == prev(larger_or_same)->after->get_penalty()){
+    must_insert = true;
   }
-  if(do_checks){
+  try {
     if(larger_or_same->on->known()){
       error_if_inconsistent
 	(penalty, loss, size,
@@ -224,6 +218,12 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
 	   prev(larger_or_same)->on->size,
 	   penalty, loss, size);
       }
+    }
+  } catch (std::domain_error& e){
+    if(must_insert){
+      size = larger_or_same->on->size;
+    }else{
+      throw e;
     }
   }
   Losses::iterator m;
