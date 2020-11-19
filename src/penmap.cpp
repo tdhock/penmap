@@ -185,29 +185,38 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
   // not considered to go before val (can be same value), or
   // set::end if all elements are considered to go before val.
   BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
-  if(larger_or_same->on->known()){
-    error_if_inconsistent
-      (penalty, loss, size,
-       larger_or_same->penalty,
-       larger_or_same->on->loss,
-       larger_or_same->on->size);
-  }
   bool do_insert = true;
-  if(larger_or_same->penalty == penalty){
-    if(larger_or_same->on->known()){
-      already_known();
-    }else{//case for penalty=0 or Inf
-      do_insert = false;
+  bool do_checks = true;
+  if(larger_or_same != breakpoints.begin()){
+    bool same_size =
+      size == prev(larger_or_same)->on->size ||
+      size == larger_or_same->on->size;
+    bool penalty_is_helpful = 
+      prev(larger_or_same)->after->helpful() &&
+      penalty == prev(larger_or_same)->after->get_penalty();
+    if(same_size && penalty_is_helpful){
+      do_checks = false;
     }
   }
-  if(larger_or_same != breakpoints.begin()){
-    if(prev(larger_or_same)->after->size == size){
-      already_known();
+  if(do_checks){
+    if(larger_or_same->on->known()){
+      error_if_inconsistent
+	(penalty, loss, size,
+	 larger_or_same->penalty,
+	 larger_or_same->on->loss,
+	 larger_or_same->on->size);
     }
-    if(prev(larger_or_same)->after->helpful() &&
-       penalty == prev(larger_or_same)->after->get_penalty()){
-      //no need to check/error.
-    }else{
+    if(larger_or_same->penalty == penalty){
+      if(larger_or_same->on->known()){
+	already_known();
+      }else{//case for penalty=0 or Inf
+	do_insert = false;
+      }
+    }
+    if(larger_or_same != breakpoints.begin()){
+      if(prev(larger_or_same)->after->size == size){
+	already_known();
+      }
       if(prev(larger_or_same)->on->known()){
 	error_if_inconsistent
 	  (prev(larger_or_same)->penalty,
