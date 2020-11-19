@@ -167,7 +167,8 @@ void error_if_inconsistent
   if(0 < size_diff){
     double cross = (loss_after - loss_before)/size_diff;
     if(cross < penalty_before || penalty_after < cross){
-      throw std::domain_error("model/penalty to insert inconsistent with previous data");
+      throw std::domain_error
+	("model/penalty to insert inconsistent with previous data");
     }
   }
 }  
@@ -203,13 +204,18 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
     if(prev(larger_or_same)->after->size == size){
       already_known();
     }
-    if(prev(larger_or_same)->on->known()){
-      error_if_inconsistent
-	(prev(larger_or_same)->penalty,
-	 prev(larger_or_same)->on->loss,
-	 prev(larger_or_same)->on->size,
-	 penalty, loss, size);
-    }	 
+    if(prev(larger_or_same)->after->helpful() &&
+       penalty == prev(larger_or_same)->after->get_penalty()){
+      //no need to check/error.
+    }else{
+      if(prev(larger_or_same)->on->known()){
+	error_if_inconsistent
+	  (prev(larger_or_same)->penalty,
+	   prev(larger_or_same)->on->loss,
+	   prev(larger_or_same)->on->size,
+	   penalty, loss, size);
+      }
+    }
   }
   Losses::iterator m;
   if(larger_or_same->on->size == size){

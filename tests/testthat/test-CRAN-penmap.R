@@ -607,3 +607,24 @@ test_that("insert on cross l1 opt", {
     r(Inf, UNKNOWN, HELPFUL(Inf)))
   expect_equal(computed, expected)
 })
+
+test_that("breakpoint filled even with inconsistent loss", {
+  p1 <- 0.00803871261034972
+  p2 <- 0.00833691488881877
+  l1 <- 0.179165814079349
+  l2 <- 0.203965155824456
+  s1 <- 33L
+  s2 <- 30L
+  m <- new(penmap::penmap)
+  m$insert(p1, l1, s1)
+  m$insert(p2, l2, s2)
+  cr <- (l1-l2)/(s2-s1)
+  m$insert(cr, l2+0.000001, s2)
+  (computed <- m$df())
+  expected <- rbind(
+    r(0, UNKNOWN, HELPFUL(0)),
+    r(p1, L(l1,s1), L(l1,s1)),
+    r(cr, BOTH, L(l2,s2)),
+    r(p2, L(l2,s2), UNKNOWN),
+    r(Inf, UNKNOWN, HELPFUL(Inf)))
+})
