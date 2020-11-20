@@ -278,3 +278,13 @@ void penmap::insert_loss_size(double penalty, double loss, int size){
     erase_pair(it, next(it));
   }
 }
+
+int penmap::num_breakpoints(){
+  return breakpoints.size();
+}
+int penmap::num_optimal(){
+  return optimal_list.size()-2;//UNKNOWN/BOTH.
+}
+int penmap::num_helpful(){
+  return helpful_list.size();
+}
