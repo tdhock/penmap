@@ -1,6 +1,10 @@
 #include <Rcpp.h>
 #include "penmap.h"
 
+// Rcpp::DataFrame minimize(penmap *inst){
+//   int Nrow = inst->breakpoints
+// }
+
 Rcpp::NumericVector helpful(penmap *inst){ 
   int Nrow = inst->helpful_list.size();
   Rcpp::NumericVector penalty_vec(Nrow);
