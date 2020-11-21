@@ -43,4 +43,7 @@ public:
   Losses::iterator new_optimal(double loss, int size);
   Losses::iterator new_helpful(double pen);
   void insert_loss_size(double penalty, double loss, int size);
+  int num_helpful();
+  int num_optimal();
+  int num_breakpoints();
 };

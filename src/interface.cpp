@@ -47,5 +47,8 @@ RCPP_MODULE(penmap_module){
     .method("insert", &penmap::insert_loss_size)
     .method("df", &df)
     .method("helpful", &helpful)
+    .method("num_helpful", &penmap::num_helpful)
+    .method("num_optimal", &penmap::num_optimal)
+    .method("num_breakpoints", &penmap::num_breakpoints)
     ;
 }
