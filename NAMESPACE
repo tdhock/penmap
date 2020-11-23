@@ -1,2 +1,6 @@
 useDynLib(penmap, .registration=TRUE)
-export(penmap)
+import(Rcpp)
+export(penmap, penmap_to_list, penmap_to_ggplot, penmap_cat, penmap_create, penmap_solve, penmap_solve_plot, solver_fpop, solver_LOPART, solver_PeakSegOptimal, penmap_result, solver_PeakSegDisk, solver_gfpop_std, solver_PELT_mean)
+S3method("print", "penmap")
+S3method("plot", "penmap")
+

@@ -1,9 +1,13 @@
 #include <Rcpp.h>
 #include "penmap.h"
 
-// Rcpp::DataFrame minimize(penmap *inst){
-//   int Nrow = inst->breakpoints
-// }
+Rcpp::IntegerVector minimize(penmap *inst, Rcpp::NumericVector penalty_vec){
+  Rcpp::IntegerVector size_vec(penalty_vec.size());
+  for(int i=0; i<penalty_vec.size(); i++){
+    size_vec[i] = inst->minimize(penalty_vec[i]);
+  }
+  return size_vec;
+}
 
 Rcpp::NumericVector helpful(penmap *inst){ 
   int Nrow = inst->helpful_list.size();
@@ -50,5 +54,6 @@ RCPP_MODULE(penmap_module){
     .method("num_helpful", &penmap::num_helpful)
     .method("num_optimal", &penmap::num_optimal)
     .method("num_breakpoints", &penmap::num_breakpoints)
+    .method("minimize", &minimize)
     ;
 }

@@ -288,3 +288,13 @@ int penmap::num_optimal(){
 int penmap::num_helpful(){
   return helpful_list.size();
 }
+
+int penmap::minimize(double penalty){
+  breakInfo new_break(penalty);
+  BreakpointTree::iterator larger_or_same = breakpoints.lower_bound(new_break);
+  if(larger_or_same->penalty == penalty){
+    return larger_or_same->on->size;
+  }else{
+    return prev(larger_or_same)->after->size;
+  }
+}

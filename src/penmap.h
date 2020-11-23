@@ -33,6 +33,7 @@ public:
   Losses::iterator UNKNOWN, BOTH;
   Losses optimal_list;
   Losses helpful_list;
+  int minimize(double);
   void set_after(BreakpointTree::iterator, Losses::iterator);
   void set_on(BreakpointTree::iterator, Losses::iterator);
   void add_breaks(BreakpointTree::iterator, BreakpointTree::iterator);
